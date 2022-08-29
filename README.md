@@ -1,6 +1,9 @@
 # The Knight's Tour Problem
 
-### Build
+Program implemented in go language to solve the knights tour problem.
+
+
+## Build
 
 ```
 go mod tidy
@@ -8,13 +11,13 @@ go mod tidy
 go build
 ```
 
-### Run
+## Run
 
 ```
 go run main.go
 ```
 
-### _Solution example_
+## Solution example
 
 ```
 This is an example generated with this program.
