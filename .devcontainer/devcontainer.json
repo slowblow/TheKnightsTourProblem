@@ -1,0 +1,51 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-existing-dockerfile
+{
+	"name": "the-knights-tour-problem",
+	"build": {
+		// Sets the run context to one level up instead of the .devcontainer folder.
+		"context": "..",
+		// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
+		"dockerfile": "Dockerfile"
+	},
+
+	"runArgs": [
+		"--network=host"
+	],
+
+	"mounts": [
+		// "source=${localEnv:USERPROFILE}${localEnv:HOME}\\.kube,target=/home/go-user/.host-kube,type=bind,consistency=cached"
+	],
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+	},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Uncomment the next line to run commands after the container is created.
+	// "postCreateCommand": "sudo chmod +x .devcontainer/postCreateCommand.sh && ./.devcontainer/postCreateCommand.sh",
+
+	// Uncomment the next line to run commands after the container is started.
+	//"postStartCommand": "",
+
+	// Configure tool-specific properties.
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.go",                        // Golang support
+				"spmeesseman.vscode-taskexplorer",  // View workspace tasks on the sidebar
+				"ms-azuretools.vscode-docker",      // Docker management support
+				"redhat.vscode-yaml",               // Yaml syntax support
+				"42crunch.vscode-openapi",          // Swagger.json support
+				"eamodio.gitlens",                  // Manage git
+				"mhutchie.git-graph"                // View git commit graph
+			]
+		}
+	}
+
+	// Uncomment to connect as an existing user other than the container default. More info: https://aka.ms/dev-containers-non-root.
+	//"remoteUser": "root"
+}

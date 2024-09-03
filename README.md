@@ -2,6 +2,17 @@
 
 Program implemented in go language to solve the knights tour problem.
 
+## Pre-rquisites
+
+* VSC Visual Studio Code
+* Docker (If you want to use devContainer)
+
+## devContainer
+
+For using devConainer, push key-combo **command-shift-P** and choose re-open in container. 
+There are two files into *.devContainer folder*:
+* **devcontainer.json** (devContainer definition)
+* **Dockerfile** (file to build docker image)
 
 ## Build
 
