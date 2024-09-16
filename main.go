@@ -7,19 +7,18 @@ import (
 )
 
 const (
-	DimMaxX = 8
-	DimMaxY = 8
+	DimMaxX = 3
+	DimMaxY = 4
 )
 
 var (
-	ErrNoMoreMovements = errors.New("No more movements.")
-	ErrNoMoreSolutions = errors.New("No more solutions.")
-	ErrOutOfBounds     = errors.New("Out of bounds.")
-	ErrCellNotMatching = errors.New("Cell not matching.")
-	ErrCellNotFree     = errors.New("Cell not free.")
+	ErrInitValuesOutOfBounds = errors.New("init values out of board")
+	ErrNoMoreMovements       = errors.New("no more movements")
+	ErrNoMoreSolutions       = errors.New("no more solutions")
+	ErrOutOfBounds           = errors.New("out of bound.")
+	ErrCellNotFree           = errors.New("cell not free")
+	// ErrCellNotMatching       = errors.New("cell not matching")
 )
-
-var board = [DimMaxX * DimMaxY]*Cell{}
 
 var movements = [][]int{{0, 0}, {1, 2}, {2, 1}, {2, -1}, {1, -2}, {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}}
 
@@ -31,61 +30,60 @@ type Cell struct {
 }
 
 func main() {
-
 	fmt.Println("Start")
-	firstCell := &Cell{}
-	i := 0
-	j := 0
-	firstCell.Position = i*DimMaxX + j + 1
-	firstCell.X = 0
-	firstCell.Y = 0
-
-	board[0] = firstCell
+	fmt.Printf("Board (%d x %d)\n", DimMaxX, DimMaxY)
+	board, err := InitBoard(0, 0)
+	if err != nil {
+		panic(err)
+	}
 
 	sol := 0
-	for index, cell := range board {
-		if cell == nil {
-			sol = index - 1
-			break
-		}
-	}
-	// fmt.Println(sol)
-	var err error
+
 	for err == nil {
-		err = searchSolution()
+		err = SearchSolution(board)
 		if err == nil {
 			sol++
-			print(sol)
+			print(sol, board)
+		} else if sol == 0 && errors.Is(err, ErrNoMoreSolutions) {
+			fmt.Println("No hay solución")
 		}
 	}
 	fmt.Println("Finish")
 }
 
-func searchSolution() error {
+func InitBoard(x, y int) ([]*Cell, error) {
+	if x >= DimMaxX || y >= DimMaxY {
+		return nil, ErrInitValuesOutOfBounds
+	}
+	board := make([]*Cell, DimMaxX*DimMaxY)
+
+	firstCell := &Cell{}
+
+	firstCell.Position = 1
+	firstCell.X = x
+	firstCell.Y = y
+
+	board[0] = firstCell
+
+	return board, nil
+}
+
+func SearchSolution(board []*Cell) error {
 	var err error
 
 	Dim := DimMaxX * DimMaxY
 
 	i := 0
-	if board[Dim-1] != nil {
+	if board[Dim-1] != nil { // prepare to next solution
 		i = Dim - 2
 		board[Dim-1] = nil
 	}
-	/*
-		for index, cell := range board {
-			i = index - 1
-			if cell == nil {
-				break
-			}
-		}
-		fmt.Println(i)
-	*/
 
 	for i >= 0 && i < Dim-1 {
 		cell := board[i]
 		cell.Movement = cell.Movement + 1
 		var nextCell *Cell
-		nextCell, err = getNextCell(cell.X, cell.Y, i+1, cell.Movement)
+		nextCell, err = GetNextCell(board, cell.X, cell.Y, i+1, cell.Movement)
 		if err == nil {
 			i++
 			board[i] = nextCell
@@ -99,16 +97,16 @@ func searchSolution() error {
 			} else if err == ErrNoMoreMovements {
 				board[i] = nil
 				i--
-			} else {
+			} /* else {
 				break
-			}
+			} */
 		}
 	}
 
 	return nil
 }
 
-func getNextCell(x, y, position, movement int) (*Cell, error) {
+func GetNextCell(board []*Cell, x, y, position, movement int) (*Cell, error) {
 	cell := &Cell{}
 
 	if movement > 8 {
@@ -126,14 +124,14 @@ func getNextCell(x, y, position, movement int) (*Cell, error) {
 	cell.Position = position + 1
 	cell.Movement = 0
 
-	if !cell.isFree() {
+	if !cell.IsFree(board) {
 		return nil, ErrCellNotFree
 	}
 
 	return cell, nil
 }
 
-func print(sol int) {
+func Print(sol int, board []*Cell) {
 	fmt.Println()
 	fmt.Println()
 	fmt.Println("Solución", sol)
@@ -149,7 +147,6 @@ func print(sol int) {
 		rowToPrint := ""
 		for indexj, pos := range row {
 			if indexj == 0 {
-				// fmt.Print("| ")
 				rowToPrint = "| "
 			}
 			extra := ""
@@ -168,9 +165,12 @@ func print(sol int) {
 		fmt.Println(rowToPrint)
 		fmt.Println(rowToSeparateRows)
 	}
+	for _, cell := range board {
+		fmt.Printf("\nX: %d, Y: %d, position: %d, movement: %d", cell.X, cell.Y, cell.Position, cell.Movement)
+	}
 }
 
-func (cell *Cell) isFree() bool {
+func (cell *Cell) IsFree(board []*Cell) bool {
 	for i := 0; i < DimMaxX*DimMaxY-1; i++ {
 		if board[i] == nil {
 			break
