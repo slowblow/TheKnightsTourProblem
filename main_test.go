@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bytes"
 	"testing"
 
 	main "the-knights-tour-problem"
@@ -10,12 +11,12 @@ import (
 
 func Test_IsFree(t *testing.T) {
 
-	board, err := main.InitBoard(0, 0)
+	board, err := main.InitBoard(0, 0, 3, 4)
 	assert.NoError(t, err)
 
 	// Cleaning the board
-	for i := range board {
-		board[i] = nil
+	for i := range board.Cells {
+		board.Cells[i] = nil
 	}
 
 	// Case 1: the new cell is not present on the board then is free
@@ -23,7 +24,7 @@ func Test_IsFree(t *testing.T) {
 	assert.Equal(t, cell.IsFree(board), true)
 
 	// Caso 2: the new main.Cell is present on the board then is not free
-	board[0] = &main.Cell{X: 1, Y: 1}
+	board.Cells[0] = &main.Cell{X: 1, Y: 1}
 
 	assert.Equal(t, cell.IsFree(board), false)
 
@@ -34,7 +35,7 @@ func Test_IsFree(t *testing.T) {
 
 // Test para la función getNextCell
 func TestGetNextCell(t *testing.T) {
-	board, err := main.InitBoard(0, 0)
+	board, err := main.InitBoard(0, 0, 3, 4)
 	assert.NoError(t, err)
 
 	tests := []struct {
@@ -127,32 +128,32 @@ func TestInitBoard(t *testing.T) {
 		Movement: 0,
 	}
 
-	board, err := main.InitBoard(initCell.X, initCell.Y)
+	board, err := main.InitBoard(initCell.X, initCell.Y, 3, 4)
 	assert.Nil(t, err)
 	assert.NotNil(t, board)
-	assert.Equal(t, initCell, board[0])
+	assert.Equal(t, initCell, board.Cells[0])
 
 	// Case 2: Valores fuera de los límites
-	board, err = main.InitBoard(9, 9) // DimMaxX y DimMaxY are 8
+	board, err = main.InitBoard(9, 9, 3, 4) // DimMaxX y DimMaxY are 8
 	assert.Nil(t, board)
 	assert.Equal(t, main.ErrInitValuesOutOfBounds, err)
 
 	// Caso 3: end of board
 	initCell = &main.Cell{
-		X:        main.DimMaxX - 1,
-		Y:        main.DimMaxY - 1,
+		X:        2,
+		Y:        3,
 		Position: 1,
 		Movement: 0,
 	}
-	board, err = main.InitBoard(initCell.X, initCell.Y)
+	board, err = main.InitBoard(initCell.X, initCell.Y, 3, 4)
 	assert.Nil(t, err)
 	assert.NotNil(t, board)
-	assert.Equal(t, initCell, board[0])
+	assert.Equal(t, initCell, board.Cells[0])
 }
 
 func TestSearchSolution(t *testing.T) {
 	// Init board
-	board, err := main.InitBoard(0, 0)
+	board, err := main.InitBoard(0, 0, 3, 4)
 	assert.NoError(t, err)
 
 	// Case 1: successful solution
@@ -164,28 +165,17 @@ func TestSearchSolution(t *testing.T) {
 	}
 	err = main.SearchSolution(board)
 	assert.Nil(t, err)
-	assert.NotNil(t, board[1])
-	assert.Equal(t, lastCell, board[1])
+	assert.NotNil(t, board.Cells[1])
+	assert.Equal(t, lastCell, board.Cells[1])
 
 	// Case 2: Error no more movements
-	for index := range board {
-		board[index] = nil
+	for index := range board.Cells {
+		board.Cells[index] = nil
 	}
-	board[0] = &main.Cell{X: 0, Y: 0, Position: 1, Movement: 8}
+	board.Cells[0] = &main.Cell{X: 0, Y: 0, Position: 1, Movement: 8}
 
 	err = main.SearchSolution(board)
 	assert.ErrorIs(t, err, main.ErrNoMoreSolutions)
-
-	/*
-		// Case 3: Out of bounds error
-		for index := range board {
-			board[index] = nil
-		}
-
-		board[0] = &Cell{X: DimMaxX - 1, Y: DimMaxY - 1, Position: 2, Movement: 8}
-		err = searchSolution(board)
-		assert.ErrorIs(t, err, ErrNoMoreMovements)
-	*/
 
 	/*
 
@@ -197,24 +187,24 @@ func TestSearchSolution(t *testing.T) {
 		| 03 | 06 | 11 | 08 |
 		---------------------
 
-		X: 0, Y: 0, position: 1, movement: 1
-		X: 1, Y: 2, position: 2, movement: 4
-		X: 2, Y: 0, position: 3, movement: 7
-		X: 0, Y: 1, position: 4, movement: 1
-		X: 1, Y: 3, position: 5, movement: 4
-		X: 2, Y: 1, position: 6, movement: 7
-		X: 0, Y: 2, position: 7, movement: 2
-		X: 2, Y: 3, position: 8, movement: 5
-		X: 1, Y: 1, position: 9, movement: 8
-		X: 0, Y: 3, position: 10, movement: 3
-		X: 2, Y: 2, position: 11, movement: 5
-		X: 1, Y: 0, position: 12, movement: 0
+		X: 0, Y: 0, Position: 1, Movement: 1
+		X: 1, Y: 2, Position: 2, Movement: 4
+		X: 2, Y: 0, Position: 3, Movement: 7
+		X: 0, Y: 1, Position: 4, Movement: 1
+		X: 1, Y: 3, Position: 5, Movement: 4
+		X: 2, Y: 1, Position: 6, Movement: 7
+		X: 0, Y: 2, Position: 7, Movement: 2
+		X: 2, Y: 3, Position: 8, Movement: 5
+		X: 1, Y: 1, Position: 9, Movement: 8
+		X: 0, Y: 3, Position: 10, Movement: 3
+		X: 2, Y: 2, Position: 11, Movement: 5
+		X: 1, Y: 0, Position: 12, Movement: 0
 	*/
 
 	// Init board
-	board, err = main.InitBoard(0, 0)
+	board, err = main.InitBoard(0, 0, 3, 4)
 	assert.NoError(t, err)
-	board = []*main.Cell{
+	board.Cells = []*main.Cell{
 		{
 			X:        0,
 			Y:        0,
@@ -279,7 +269,100 @@ func TestSearchSolution(t *testing.T) {
 	}
 	err = main.SearchSolution(board)
 	assert.NoError(t, err)
-	print(2, board)
-	assert.NotNil(t, board[len(board)-1])
+	assert.NotNil(t, board.Cells[len(board.Cells)-1])
 
+}
+
+func TestPrint(t *testing.T) {
+	// Create a buffer to capture output
+	var buf bytes.Buffer
+
+	board, err := main.InitBoard(0, 0, 3, 4)
+	assert.NoError(t, err)
+
+	board.Cells = []*main.Cell{
+		{
+			X:        0,
+			Y:        0,
+			Position: 1,
+			Movement: 1,
+		}, {
+			X:        1,
+			Y:        2,
+			Position: 2,
+			Movement: 4,
+		}, {
+			X:        2,
+			Y:        0,
+			Position: 3,
+			Movement: 7,
+		}, {
+			X:        0,
+			Y:        1,
+			Position: 4,
+			Movement: 1,
+		}, {
+			X:        1,
+			Y:        3,
+			Position: 5,
+			Movement: 4,
+		}, {
+			X:        2,
+			Y:        1,
+			Position: 6,
+			Movement: 7,
+		}, {
+			X:        0,
+			Y:        2,
+			Position: 7,
+			Movement: 2,
+		}, {
+			X:        2,
+			Y:        3,
+			Position: 8,
+			Movement: 5,
+		}, {
+			X:        1,
+			Y:        1,
+			Position: 9,
+			Movement: 8,
+		}, {
+			X:        0,
+			Y:        3,
+			Position: 10,
+			Movement: 3,
+		}, {
+			X:        2,
+			Y:        2,
+			Position: 11,
+			Movement: 5,
+		}, {
+			X:        1,
+			Y:        0,
+			Position: 12,
+			Movement: 0,
+		},
+	}
+
+	// Expected output
+	expectedOutput := `
+
+Solución 1
+
+---------------------
+| 01 | 04 | 07 | 10 | 
+---------------------
+| 12 | 09 | 02 | 05 | 
+---------------------
+| 03 | 06 | 11 | 08 | 
+---------------------
+
+`
+
+	// Call the Print method with the buffer
+	board.Print(&buf, 1)
+
+	// Check if the output matches
+	output := buf.String()
+	assert.Equal(t, expectedOutput, output)
 }
