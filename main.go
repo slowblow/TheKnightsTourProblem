@@ -1,23 +1,34 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
+
+	"github.com/sirupsen/logrus"
+)
+
+const (
+	dimX = 3
+	dimY = 4
+	tens = 10
 )
 
 var (
 	ErrInitValuesOutOfBounds = errors.New("init values out of board")
 	ErrNoMoreMovements       = errors.New("no more movements")
+	ErrNoSolution            = errors.New("no solution")
 	ErrNoMoreSolutions       = errors.New("no more solutions")
-	ErrOutOfBounds           = errors.New("out of bound.")
+	ErrOutOfBounds           = errors.New("out of bound")
 	ErrCellNotFree           = errors.New("cell not free")
 	// ErrCellNotMatching       = errors.New("cell not matching")
 )
 
-var movements = [][]int{{0, 0}, {1, 2}, {2, 1}, {2, -1}, {1, -2}, {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}}
+var movements = [][]int{
+	{0, 0},
+	{1, 2}, {2, 1}, {2, -1}, {1, -2},
+	{-1, -2}, {-2, -1}, {-2, 1}, {-1, 2},
+}
 
 type Cell struct {
 	Position int `json:"position"`
@@ -33,31 +44,40 @@ type Board struct {
 }
 
 func main() {
-
-	dimMaxX := 3
-	dimMaxY := 4
-
-	fmt.Println("Start")
-	fmt.Printf("Board (%d x %d)\n", dimMaxX, dimMaxY)
-	board, err := InitBoard(0, 0, dimMaxX, dimMaxY)
-	if err != nil {
+	if err := Run(dimX, dimY); err != nil {
 		panic(err)
+	}
+}
+
+func Run(dimensionX, dimensionY int) error {
+	// revive:disable:unhandled-error
+
+	logrus.Info("Start")
+	logrus.Infof("Board (%d x %d)", dimensionX, dimensionY)
+	// revive:enable:unhandled-error
+	board, err := InitBoard(0, 0, dimensionX, dimensionY)
+	if err != nil {
+		logrus.Error(err)
+		return err
 	}
 
 	sol := 0
-
-	var buf bytes.Buffer
 
 	for err == nil {
 		err = SearchSolution(board)
 		if err == nil {
 			sol++
-			board.Print(&buf, sol)
+			board.Print(sol)
 		} else if sol == 0 && errors.Is(err, ErrNoMoreSolutions) {
-			fmt.Println("No hay solución")
+			// revive:disable:unhandled-error
+			logrus.Info("No hay solución")
+			return ErrNoSolution
+			// revive:enable:unhandled-error
 		}
 	}
-	fmt.Println("Finish")
+	logrus.Info("Finish") // revive:disable-line:unhandled-error
+
+	return nil
 }
 
 func InitBoard(x, y, dimMaxX, dimMaxY int) (*Board, error) {
@@ -72,70 +92,81 @@ func InitBoard(x, y, dimMaxX, dimMaxY int) (*Board, error) {
 		DimY:  dimMaxY,
 	}
 
-	firstCell := &Cell{}
-
-	firstCell.Position = 1
-	firstCell.X = x
-	firstCell.Y = y
+	firstCell := &Cell{
+		Position: 1,
+		X:        x,
+		Y:        y,
+		Movement: 0,
+	}
 
 	board.Cells[0] = firstCell
 
 	return board, nil
 }
 
-func SearchSolution(board *Board) error {
-	var err error
-
-	Dim := board.DimX * board.DimY
-
-	i := 0
-	if board.Cells[Dim-1] != nil { // prepare to next solution
-		i = Dim - 2
-		board.Cells[Dim-1] = nil
+func prepareToNextSolution(board *Board) int {
+	dim := board.DimX * board.DimY
+	if board.Cells[dim-1] != nil { // prepare to next solution
+		board.Cells[dim-1] = nil
+		return dim - 2
 	}
 
-	for i >= 0 && i < Dim-1 {
-		cell := board.Cells[i]
-		cell.Movement = cell.Movement + 1
-		var nextCell *Cell
-		nextCell, err = GetNextCell(board, cell.X, cell.Y, i+1, cell.Movement)
-		if err == nil {
-			i++
-			board.Cells[i] = nextCell
-		} else {
-			if err == ErrNoMoreSolutions {
-				return err
-			}
-			// break
-			if err == ErrOutOfBounds || err == ErrCellNotFree {
-				// cell.Movement = cell.Movement + 1
-			} else if err == ErrNoMoreMovements {
-				board.Cells[i] = nil
-				i--
-			} /* else {
-				break
-			} */
+	return 0
+}
+
+func SearchSolution(board *Board) error {
+	dim := board.DimX * board.DimY
+
+	i := prepareToNextSolution(board)
+
+	var err error
+	for i >= 0 && i < dim-1 {
+		err = nextStepSearchSolution(board, &i)
+		if err != nil {
+			return err
 		}
+	}
+
+	return err
+}
+
+func nextStepSearchSolution(board *Board, i *int) error {
+	cell := board.Cells[*i]
+	cell.Movement = cell.Movement + 1
+	nextCell, err := GetNextCell(board, cell, *i+1)
+	if err == nil {
+		*i++
+		board.Cells[*i] = nextCell
+	} else if errors.Is(err, ErrNoMoreSolutions) {
+		return err
+	} else if errors.Is(err, ErrNoMoreMovements) {
+		board.Cells[*i] = nil
+		*i--
 	}
 
 	return nil
 }
 
-func GetNextCell(board *Board, x, y, position, movement int) (*Cell, error) {
+// func GetNextCell(board *Board, x, y, position, movement int) (*Cell, error) {
+func GetNextCell(board *Board, currentCell *Cell, position int) (*Cell, error) {
+	// nolint:exhaustruct
 	cell := &Cell{}
 
-	if movement > 8 {
+	if currentCell.Movement >= len(movements) {
 		if position == 1 {
 			return nil, ErrNoMoreSolutions
 		}
 		return nil, ErrNoMoreMovements
 	}
 
-	if x+movements[movement][0] < 0 || x+movements[movement][0] > board.DimX-1 || y+movements[movement][1] < 0 || y+movements[movement][1] > board.DimY-1 {
+	if currentCell.X+movements[currentCell.Movement][0] < 0 ||
+		currentCell.X+movements[currentCell.Movement][0] > board.DimX-1 ||
+		currentCell.Y+movements[currentCell.Movement][1] < 0 ||
+		currentCell.Y+movements[currentCell.Movement][1] > board.DimY-1 {
 		return nil, ErrOutOfBounds
 	}
-	cell.X = x + movements[movement][0]
-	cell.Y = y + movements[movement][1]
+	cell.X = currentCell.X + movements[currentCell.Movement][0]
+	cell.Y = currentCell.Y + movements[currentCell.Movement][1]
 	cell.Position = position + 1
 	cell.Movement = 0
 
@@ -158,45 +189,46 @@ func (cell *Cell) IsFree(board *Board) bool {
 	return true
 }
 
-func (board *Board) Print(w io.Writer, sol int) {
-	fmt.Fprintln(w)
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "Solución %d", sol)
-	fmt.Fprintln(w)
-	fmt.Fprintln(w)
-
-	solution := make([][]int, board.DimX)
+func prepareSolutionToPrint(board *Board) [][]string {
+	solution := make([][]string, board.DimX)
 	for i := range solution {
-		solution[i] = make([]int, board.DimY)
+		solution[i] = make([]string, board.DimY)
 	}
 
 	for _, cell := range board.Cells {
-		solution[cell.X][cell.Y] = cell.Position
+		initCell := ""
+		if cell.Y == 0 {
+			initCell = "|"
+		}
+		extraTens := ""
+		if cell.Position < tens {
+			extraTens = "0"
+		}
+		solution[cell.X][cell.Y] =
+			initCell + " " + extraTens + fmt.Sprint(cell.Position) + " |"
 	}
+	return solution
+}
+
+func (board *Board) Print(sol int) {
+	logrus.Infof("Solución %d", sol)
+
+	solution := prepareSolutionToPrint(board)
 
 	rowToSeparateRows := ""
 	for indexi, row := range solution {
 		rowToPrint := ""
-		for indexj, pos := range row {
-			if indexj == 0 {
-				rowToPrint = "| "
-			}
-			extra := ""
-			if pos < 10 {
-				extra = "0"
-			}
-			rowToPrint += (extra + fmt.Sprint(pos) + " | ")
+		for _, pos := range row {
+			rowToPrint += pos
 		}
 		if indexi == 0 {
 			length := len(strings.Trim(rowToPrint, " "))
 			for i := 0; i < length; i++ {
 				rowToSeparateRows += "-"
 			}
-			fmt.Fprintln(w, rowToSeparateRows)
+			logrus.Info(rowToSeparateRows)
 		}
-		fmt.Fprintln(w, rowToPrint)
-		fmt.Fprintln(w, rowToSeparateRows)
+		logrus.Info(rowToPrint)
+		logrus.Info(rowToSeparateRows)
 	}
-
-	fmt.Fprintln(w)
 }
