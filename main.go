@@ -3,18 +3,29 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	dimX = 3
-	dimY = 4
-	tens = 10
+	dimX             = 3
+	dimY             = 4
+	tens             = 10
+	numInitArguments = 4
+
+	// Define state constants using iota
+	StateSuccess        = iota // 0
+	StateInitValuesFail        // 1
+	StateRunFail               // 2
 )
 
 var (
+	ErrInitArgumentsRequired = errors.New(
+		"it is required initX, initY, dimX & dimY as arguments",
+	)
 	ErrInitValuesOutOfBounds = errors.New("init values out of board")
 	ErrNoMoreMovements       = errors.New("no more movements")
 	ErrNoSolution            = errors.New("no solution")
@@ -43,19 +54,101 @@ type Board struct {
 	DimY  int
 }
 
-func main() {
-	if err := Run(dimX, dimY); err != nil {
-		panic(err)
-	}
+type InitValues struct {
+	initX int
+	initY int
+	dimX  int
+	dimY  int
 }
 
-func Run(dimensionX, dimensionY int) error {
-	// revive:disable:unhandled-error
+func (initValues *InitValues) LoadValues(initX, initY, dimX, dimY int) {
+	initValues.initX = initX
+	initValues.initY = initY
+	initValues.dimX = dimX
+	initValues.dimY = dimY
+}
 
-	logrus.Info("Start")
-	logrus.Infof("Board (%d x %d)", dimensionX, dimensionY)
-	// revive:enable:unhandled-error
-	board, err := InitBoard(0, 0, dimensionX, dimensionY)
+type Runnable interface {
+	GetInitValues() error
+	Run() error
+}
+
+type Runner struct {
+	InitValues *InitValues
+}
+
+func main() {
+	// I'm ok with not testing this call
+	//nolint:exhaustruct
+	os.Exit(RealMain(&Runner{}))
+}
+
+func RealMain(runnable Runnable) int {
+	logrus.Info("*** Start ***")
+	defer logrus.Info("*** Finish ***")
+
+	err := runnable.GetInitValues()
+	if err != nil {
+		logrus.Error(err)
+		return StateInitValuesFail
+	}
+
+	if err := runnable.Run(); err != nil {
+		logrus.Error(err)
+		return StateRunFail
+	}
+
+	return StateSuccess
+}
+
+func (runner *Runner) GetInitValues() error {
+	var err error
+	initValues := new(InitValues)
+	// Check if the arguments are presents
+	if len(os.Args) <= numInitArguments {
+		logrus.Info("it is required initX, initY, dimX & dimY as arguments")
+		return ErrInitArgumentsRequired
+	}
+
+	// Get the value of initX (first argument)
+	initValues.initX, err = strconv.Atoi(os.Args[1])
+	if err != nil {
+		return fmt.Errorf("%w: initX not valid", err)
+	}
+
+	// Get the value of initY (second argument)
+	initValues.initY, err = strconv.Atoi(os.Args[2])
+	if err != nil {
+		return fmt.Errorf("%w: initY not valid", err)
+	}
+
+	// Get the value of dimX (third argument)
+	initValues.dimX, err = strconv.Atoi(os.Args[3])
+	if err != nil {
+		return fmt.Errorf("%w: dimX not valid", err)
+	}
+
+	// Get the value of dimY (fourth argument)
+	initValues.dimY, err = strconv.Atoi(os.Args[4])
+	if err != nil {
+		return fmt.Errorf("%w: dimY not valid", err)
+	}
+
+	runner.InitValues = initValues
+	return nil
+}
+
+func (runner *Runner) Run() error {
+	logrus.Infof(
+		"Board (%d x %d)",
+		runner.InitValues.dimX,
+		runner.InitValues.dimY,
+	)
+
+	board, err := InitBoard(
+		runner.InitValues.initX, runner.InitValues.initY,
+		runner.InitValues.dimX, runner.InitValues.dimY,
+	)
 	if err != nil {
 		logrus.Error(err)
 		return err
@@ -69,13 +162,10 @@ func Run(dimensionX, dimensionY int) error {
 			sol++
 			board.Print(sol)
 		} else if sol == 0 && errors.Is(err, ErrNoMoreSolutions) {
-			// revive:disable:unhandled-error
 			logrus.Info("No hay solución")
 			return ErrNoSolution
-			// revive:enable:unhandled-error
 		}
 	}
-	logrus.Info("Finish") // revive:disable-line:unhandled-error
 
 	return nil
 }

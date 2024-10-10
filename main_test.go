@@ -2,14 +2,27 @@ package main_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
+	"reflect"
 	"testing"
+	"the-knights-tour-problem/internal/mocks"
 
 	main "the-knights-tour-problem"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	testCmd         = "cmd"
+	testDimIntOne   = 1
+	testDimIntThree = 3
+	testDimIntFour  = 4
+	testDimOne      = "1"
+	testDimThree    = "3"
+	testDimFour     = "4"
 )
 
 var testExpectedOutput3x4 = `level=info msg="Solución 1"
@@ -86,7 +99,7 @@ var testSolution3x4 = []*main.Cell{
 	},
 }
 
-func Test_IsFree(t *testing.T) {
+func TestIsFree(t *testing.T) {
 	board, err := main.InitBoard(0, 0, 3, 4) // revive:disable-line:add-constant
 	require.NoError(t, err)
 
@@ -325,14 +338,146 @@ func TestPrint(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
+	initValues := new(main.InitValues)
+
+	runner := &main.Runner{
+		InitValues: initValues,
+	}
+
+	err := runner.Run()
+	require.ErrorIs(t, err, main.ErrInitValuesOutOfBounds)
+
 	// revive:disable:add-constant
-	err := main.Run(4, 3)
+	initValues.LoadValues(0, 0, 4, 3)
+	runner.InitValues = initValues
+	err = runner.Run()
 	require.NoError(t, err)
 
-	err = main.Run(2, 2)
+	initValues.LoadValues(0, 0, 2, 2)
+	err = runner.Run()
 	require.ErrorIs(t, err, main.ErrNoSolution)
-
-	err = main.Run(0, 0)
-	require.ErrorIs(t, err, main.ErrInitValuesOutOfBounds)
 	// revive:enable:add-constant
+}
+
+func TestGetInitValues(t *testing.T) {
+	/*
+		ValidArgs
+	*/
+
+	// test values
+	initX := testDimIntOne
+	initY := testDimIntOne
+	dimX := testDimIntThree
+	dimY := testDimIntFour
+
+	// simulate arguments in command line
+	os.Args = []string{
+		"cmd",
+		fmt.Sprint(initX),
+		fmt.Sprint(initY),
+		fmt.Sprint(dimX),
+		fmt.Sprint(dimY),
+	}
+
+	//nolint:exhaustruct
+	runner := &main.Runner{}
+
+	err := runner.GetInitValues()
+	require.NoError(t, err)
+
+	// Using reflection in order to access to private fields
+	values := reflect.ValueOf(runner.InitValues).Elem()
+
+	tests := []struct {
+		field    string
+		expected int
+	}{
+		{"initX", initX},
+		{"initY", initY},
+		{"dimX", dimX},
+		{"dimY", dimY},
+	}
+
+	for _, test := range tests {
+		fieldValue := values.FieldByName(test.field)
+
+		assert.True(t, fieldValue.IsValid())
+		assert.Equal(t, int64(test.expected), fieldValue.Int())
+	}
+
+	/*
+		InsufficientArgs
+	*/
+	os.Args = []string{"cmd", testDimOne, testDimOne}
+
+	err = runner.GetInitValues()
+	require.Error(t, err)
+	require.ErrorIs(t, err, main.ErrInitArgumentsRequired)
+
+	/*
+		InvalidArgs
+	*/
+	invalidArgTests := []struct {
+		args   []string
+		errMsg string
+	}{
+		{
+			args: []string{
+				testCmd, "one", testDimOne, testDimThree, testDimFour,
+			},
+			errMsg: "invalid syntax: initX not valid",
+		},
+		{
+			args: []string{
+				testCmd, testDimOne, "one", testDimThree, testDimFour,
+			},
+			errMsg: "invalid syntax: initY not valid",
+		},
+		{
+			args: []string{
+				testCmd, testDimOne, testDimOne, "three", testDimFour,
+			},
+			errMsg: "invalid syntax: dimX not valid",
+		},
+		{
+			args: []string{
+				testCmd, testDimOne, testDimOne, testDimThree, "four",
+			},
+			errMsg: "invalid syntax: dimY not valid",
+		},
+	}
+
+	for _, test := range invalidArgTests {
+		os.Args = test.args
+		err := runner.GetInitValues()
+		require.Error(t, err)
+		require.ErrorContains(t, err, test.errMsg)
+	}
+}
+
+func TestRealMain(t *testing.T) {
+	// Successful
+	mock := mocks.NewMainRunnable(t)
+
+	mock.EXPECT().GetInitValues().Return(nil)
+	mock.EXPECT().Run().Return(nil)
+
+	retorno := main.RealMain(mock)
+	assert.Equal(t, main.StateSuccess, retorno)
+
+	// Error on init values
+	mock = mocks.NewMainRunnable(t)
+
+	mock.EXPECT().GetInitValues().Return(main.ErrInitArgumentsRequired)
+	retorno = main.RealMain(mock)
+	assert.Equal(t, main.StateInitValuesFail, retorno)
+
+	// Error on run task
+	mock = mocks.NewMainRunnable(t)
+
+	mock.EXPECT().GetInitValues().Return(nil)
+	mock.EXPECT().Run().Return(main.ErrNoSolution)
+
+	retorno = main.RealMain(mock)
+	assert.Equal(t, main.StateRunFail, retorno)
 }

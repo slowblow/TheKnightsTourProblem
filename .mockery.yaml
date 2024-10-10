@@ -1,0 +1,11 @@
+with-expecter: True
+inpackage: False
+dir: "internal/mocks"
+outpkg: "mocks"
+filename: "mock_{{.PackageName}}{{.InterfaceName}}.go"
+mockname: "{{.PackageName | firstUpper}}{{.InterfaceName}}"
+packages:
+  the-knights-tour-problem:
+    interfaces:
+      Runnable:
+    
