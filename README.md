@@ -14,6 +14,19 @@ There are two files into *.devContainer folder*:
 * **devcontainer.json** (devContainer definition)
 * **Dockerfile** (file to build docker image)
 
+## Linter
+
+Using a golangci-lint to improve the code.
+ * Config file in root project: _.golangci.yml_
+
+## Tasks
+
+Inside the _.vscode_ folder, you can see a tasks.json which it is the config file to define the tasks to run:
+* Run. _To start the program with default values_
+* Coverage. _To run the tests_
+* Run golangci linter. _To run the linter check_
+* Generate mocks. _To build the defined mocks for testing_
+
 ## Build
 
 ```
